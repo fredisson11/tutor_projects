@@ -1,73 +1,145 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError
-from django.contrib.auth.hashers import make_password
-from user.models import Student, Teacher, Specialty, BaseUser
+from django.core.validators import validate_email
+from django.contrib.auth import get_user_model
+from user.models import (
+    Student,
+    Teacher,
+    Language,
+    Country,
+    City,
+    Subject,
+    CategoriesOfStudents,
+    BaseUser,
+)
+
+import re
+
+User = get_user_model()
 
 
-class StudentSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    confirm_password = serializers.CharField(write_only=True)
-    email = serializers.EmailField(source="user.email")
-    first_name = serializers.CharField(source="user.first_name")
-    last_name = serializers.CharField(source="user.last_name")
+class UserRegistrationSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    role = serializers.ChoiceField(choices=BaseUser.ROLES_CHOICES)
+
+    class Meta:
+        model = User
+        fields = ["email", "password", "role"]
+
+    @staticmethod
+    def validate_email(value):
+        try:
+            validate_email(value)
+        except Exception:
+            raise serializers.ValidationError("Невірний формат email")
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Користувач з таким email вже існує")
+        return value
+
+    @staticmethod
+    def validate_password(value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Пароль має містити не менше 8 символів.")
+        if not re.search(r"[A-Za-z]", value):
+            raise serializers.ValidationError("Пароль має містити хоча б одну літеру.")
+        if not re.search(r"\d", value):
+            raise serializers.ValidationError("Пароль має містити хоча б одну цифру.")
+        if not re.search(r"[@$!%*?&]", value):
+            raise serializers.ValidationError(
+                "Пароль має містити хоча б один спеціальний символ (@, $, !, %, *, ?, &)."
+            )
+        return value
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            email=validated_data["email"],
+            password=validated_data["password"],
+        )
+        user.role = validated_data["role"]
+        user.is_active = False
+        user.save()
+
+        return user
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    city = serializers.PrimaryKeyRelatedField(queryset=City.objects.all())
+    country = serializers.PrimaryKeyRelatedField(queryset=Country.objects.all())
+    language = serializers.PrimaryKeyRelatedField(queryset=Language.objects.all())
 
     class Meta:
         model = Student
-        fields = ["email", "first_name", "last_name", "password", "confirm_password"]
-
-    def validate(self, attrs):
-        """Перевірка на відповідність пароля"""
-        if attrs["password"] != attrs["confirm_password"]:
-            raise ValidationError("Паролі не співпадають")
-        return attrs
-
-    def create(self, validated_data):
-        """Створення нового студента"""
-        validated_data["password"] = make_password(validated_data["password"])
-        student = Student.objects.create(user=BaseUser.objects.create(**validated_data))
-        student.save()
-        return student
+        fields = [
+            "first_name",
+            "last_name",
+            "age",
+            "phone",
+            "photo",
+            "city",
+            "country",
+            "language",
+        ]
 
 
-class TeacherSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-    confirm_password = serializers.CharField(write_only=True)
-    email = serializers.EmailField(source="user.email")
-    first_name = serializers.CharField(source="user.first_name")
-    last_name = serializers.CharField(source="user.last_name")
-    bio = serializers.CharField(source="user.bio", required=False)
-    age = serializers.IntegerField(source="user.age", required=False)
-    rating = serializers.FloatField(source="user.rating", required=False)
-    specialty = serializers.PrimaryKeyRelatedField(queryset=Specialty.objects.all())
+class TeacherProfileSerializer(serializers.ModelSerializer):
+    language = serializers.PrimaryKeyRelatedField(
+        queryset=Language.objects.all(), required=False
+    )
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=Country.objects.all(), required=False
+    )
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=City.objects.all(), required=False
+    )
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=CategoriesOfStudents.objects.all(), many=True, required=False
+    )
+    subjects = serializers.PrimaryKeyRelatedField(
+        queryset=Subject.objects.all(), many=True, required=False
+    )
 
     class Meta:
         model = Teacher
         fields = [
-            "email",
             "first_name",
             "last_name",
-            "bio",
             "age",
-            "rating",
-            "specialty",
-            "password",
-            "confirm_password",
+            "photo",
+            "city",
+            "country",
+            "language",
+            "categories",
+            "teaching_experience",
+            "about_me",
+            "hobbies",
+            "education",
+            "lesson_flow",
+            "lesson_price",
+            "lesson_duration",
+            "subjects",
+            "telegram",
+            "whatsapp",
+            "viber",
+            "instagram",
         ]
 
-    def validate(self, attrs):
-        """Перевірка на відповідність пароля"""
-        if attrs["password"] != attrs["confirm_password"]:
-            raise ValidationError("Паролі не співпадають")
-        return attrs
 
-    def create(self, validated_data):
-        """Створення нового викладача"""
-        validated_data["password"] = make_password(validated_data["password"])
-        teacher = Teacher.objects.create(user=BaseUser.objects.create(**validated_data))
-        teacher.save()
-        return teacher
+def validate_city_belongs_to_country(attrs):
+    country = attrs.get("country")
+    city = attrs.get("city")
+    if city and country and city.country != country:
+        raise ValidationError("Обране місто не належить вибраній країні.")
+    return attrs
 
 
+# -------------------- CitySerializer --------------------
+class CitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = City
+        fields = ["id", "name"]
+
+
+# -------------------- ChangePasswordSerializer --------------------
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
@@ -80,15 +152,15 @@ class ChangePasswordSerializer(serializers.Serializer):
         confirm_password = data.get("confirm_password")
 
         if not user.check_password(old_password):
-            raise serializers.ValidationError("Старий пароль невірний.")
+            raise serializers.ValidationError("Old password is invalid")
 
         if new_password != confirm_password:
             raise serializers.ValidationError(
-                "Новий пароль і підтвердження не співпадають."
+                "New password and confirm_password do not match"
             )
 
         if old_password == new_password:
             raise serializers.ValidationError(
-                "Новий пароль не може бути таким самим, як старий."
+                "New password cannot be the same as the old one."
             )
         return data
