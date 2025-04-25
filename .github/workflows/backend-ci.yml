@@ -50,7 +50,7 @@ jobs:
           bandit -r . -f txt -o reports/bandit-report.txt || true
 
       - name: "📤 Upload bandit report"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bandit-report
           path: reports/bandit-report.txt
@@ -77,7 +77,10 @@ jobs:
           password: "${{ secrets.DOCKERHUB_TOKEN }}"
 
       - name: "🔧 Build image"
-        run: docker build -t "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" .
+        run: |
+          docker build \
+            --progress=plain \
+            -t "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" .
 
       - name: "🚀 Push image"
         run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
