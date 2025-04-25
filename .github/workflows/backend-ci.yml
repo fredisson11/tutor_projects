@@ -13,7 +13,6 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.11"
-  OS: "ubuntu-latest"
   IMAGE_REPO: "test-backend"
   IMAGE_TAG: "${{ github.sha }}"
   HELM_RELEASE_NAME: "backend"
@@ -22,7 +21,7 @@ env:
 jobs:
   test-code:
     name: "🧪 Lint & Security Checks"
-    runs-on: ${{ env.OS }}
+    runs-on: ubuntu-latest
 
     # ❗ This job is non-blocking and will always succeed,
     # because it only contains basic code quality checks (flake8 + bandit).
@@ -66,7 +65,7 @@ jobs:
   build-and-push:
     name: "🐳 Build & Push Docker Image"
     needs: test-code
-    runs-on: ${{ env.OS }}
+    runs-on: ubuntu-latest
     steps:
       - name: "📥 Checkout code"
         uses: actions/checkout@v3
@@ -86,7 +85,7 @@ jobs:
   call-backend-cd:
     name: "🛰️ Trigger Centralized Deployment"
     needs: build-and-push
-    runs-on: ${{ env.OS }}
+    runs-on: ubuntu-latest
     steps:
       - name: "📡 Trigger centralized deploy"
         run: |
@@ -100,7 +99,6 @@ jobs:
                 "IMAGE_REPO": "${{ env.IMAGE_REPO }}",
                 "IMAGE_TAG": "${{ env.IMAGE_TAG }}",
                 "HELM_RELEASE_NAME": "${{ env.HELM_RELEASE_NAME }}",
-                "HELM_NAMESPACE": "${{ env.HELM_NAMESPACE }}",
-                "OS": "${{ env.OS }}"
+                "HELM_NAMESPACE": "${{ env.HELM_NAMESPACE }}"
               }
             }'
