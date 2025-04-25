@@ -13,7 +13,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.11"
-  IMAGE_REPO: "test-backend"
+  IMAGE_REPO: "tp154-backend"
   IMAGE_TAG: "${{ github.sha }}"
   HELM_RELEASE_NAME: "backend"
   HELM_NAMESPACE: "default"
