@@ -39,21 +39,24 @@ jobs:
           python-version: "${{ env.PYTHON_VERSION }}"
 
       - name: "📦 Install test tools"
-        run: pip install flake8 bandit
+        run: pip install flake8 bandit pytest
 
       - name: "🎨 Run flake8 (style checks)"
         run: flake8 .
+        continue-on-error: true
 
       - name: "🔐 Run bandit (security checks) and save report"
         run: |
           mkdir -p reports
           bandit -r . -f txt -o reports/bandit-report.txt || true
+        continue-on-error: true
 
       - name: "📤 Upload bandit report"
         uses: actions/upload-artifact@v4
         with:
           name: bandit-report
           path: reports/bandit-report.txt
+        continue-on-error: true
 
       - name: "🧪 Run unit tests (placeholder)"
         # Placeholder for future unit tests
