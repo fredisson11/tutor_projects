@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb1-dev
 
 COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -v --no-cache-dir -r requirements.txt
 
 RUN apt-get purge -y \
     gcc \
