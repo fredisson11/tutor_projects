@@ -13,10 +13,7 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.11"
-  IMAGE_REPO: "tp154-backend"
   IMAGE_TAG: "${{ github.sha }}"
-  HELM_RELEASE_NAME: "backend"
-  HELM_NAMESPACE: "default"
 
 jobs:
   test-code:
@@ -69,6 +66,7 @@ jobs:
     name: "🐳 Build & Push Docker Image"
     needs: test-code
     runs-on: ubuntu-latest
+
     steps:
       - name: "📥 Checkout code"
         uses: actions/checkout@v3
@@ -83,15 +81,16 @@ jobs:
         run: |
           docker build \
             --progress=plain \
-            -t "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" .
+            -t "${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" .
 
       - name: "🚀 Push image"
-        run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
+        run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
 
   call-backend-cd:
     name: "🛰️ Trigger Centralized Deployment"
     needs: build-and-push
     runs-on: ubuntu-latest
+
     steps:
       - name: "📡 Trigger centralized deploy"
         run: |
@@ -103,9 +102,7 @@ jobs:
             -d '{
               "ref": "main",
               "inputs": {
-                "IMAGE_REPO": "${{ env.IMAGE_REPO }}",
-                "IMAGE_TAG": "${{ env.IMAGE_TAG }}",
-                "HELM_RELEASE_NAME": "${{ env.HELM_RELEASE_NAME }}",
-                "HELM_NAMESPACE": "${{ env.HELM_NAMESPACE }}"
+                "IMAGE_REPO": "${{ vars.IMAGE_REPO }}",
+                "IMAGE_TAG": "${{ env.IMAGE_TAG }}"
               }
             }'
