@@ -1,5 +1,5 @@
-name: Backend CI/CD
-run-name: "${{ github.actor }} - ${{ github.ref_name }} - [${{ github.sha }}]"
+name: "⚙️ CI/CD for Backend"
+run-name: "${{ github.actor }} on ${{ github.ref_name }} - ${{ github.sha }}"
 
 on:
   push:
@@ -17,11 +17,11 @@ env:
 
 jobs:
   test-code:
-    name: "🧪 Lint & Security Checks"
+    name: "🧪 Lint & Security Checks (Simulated)"
     runs-on: ubuntu-latest
 
     # ❗ This job is non-blocking and will always succeed,
-    # because it only contains basic code quality checks (flake8 + bandit).
+    # because it only contains basic code quality checks.
     # It's included to simulate a proper testing pipeline in the absence of real tests,
     # and serves as a placeholder for future unit and integration tests.
     continue-on-error: true
@@ -55,7 +55,7 @@ jobs:
           path: reports/bandit-report.txt
         continue-on-error: true
 
-      - name: "🧪 Run unit tests (placeholder)"
+      - name: "🧪 Run unit tests uses Pytest (placeholder)"
         # Placeholder for future unit tests
         # This will always pass unless actual tests are added to the `tests/` directory.
         run: |
@@ -86,7 +86,7 @@ jobs:
       - name: "🚀 Push image"
         run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
 
-  call-backend-cd:
+  call-cd:
     name: "🛰️ Trigger Centralized Deployment"
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -98,10 +98,11 @@ jobs:
           curl -i -X POST \
             -H "Authorization: Bearer ${{ secrets.INFRASTRUCTURE_REPO_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/fredisson11/tp154-infrastructure/actions/workflows/backend-cd-main.yml/dispatches \
+            https://api.github.com/repos/fredisson11/tp154-infrastructure/actions/workflows/cd-main.yml/dispatches \
             -d '{
               "ref": "main",
               "inputs": {
+                "MICROSVC_TYPE": "backend",
                 "IMAGE_REPO": "${{ vars.IMAGE_REPO }}",
                 "IMAGE_TAG": "${{ env.IMAGE_TAG }}"
               }
