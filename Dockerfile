@@ -1,31 +1,53 @@
-FROM python:3.11-alpine3.18
-LABEL maintainer="mgoryn68@gmail.com"
+FROM python:3.12.10-slim
 
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app/
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    libpq5 \
+    libjpeg-dev \
+    zlib1g-dev \
+    libfreetype6-dev \
+    liblcms2-dev \
+    libopenjp2-7-dev \
+    libtiff-dev \
+    libwebp-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libxcb1-dev
 
 COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -v --no-cache-dir -r requirements.txt
 
-RUN adduser \
-        --disabled-password \
-        --no-create-home \
-        my_user
+# RUN apt-get purge -y \
+#     gcc \
+#     libpq-dev \
+#     libjpeg-dev \
+#     zlib1g-dev \
+#     libfreetype6-dev \
+#     liblcms2-dev \
+#     libopenjp2-7-dev \
+#     libtiff-dev \
+#     libwebp-dev \
+#     libharfbuzz-dev \
+#     libfribidi-dev \
+#     libxcb1-dev && \
+#     apt-get autoremove -y && \
+#     rm -rf /var/lib/apt/lists/*
 
-RUN chown -R my_user /files/media
-RUN chmod -R 755 /files/media
+RUN adduser --disabled-password --no-create-home my_user
 
-RUN mkdir -p /files/media
+RUN mkdir -p /media && \
+    chown -R my_user /media && \
+    chmod -R 755 /media
 
 COPY . .
 
-RUN chown -R my_user /app
-
-RUN chmod -R 755 /app
+RUN chown -R my_user /app && chmod -R 755 /app
 
 EXPOSE 8000
 
-# Команда запуску контейнера
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
