@@ -1,40 +1,74 @@
-from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-    TokenVerifyView,
-)
-from django.conf import settings
-from django.conf.urls.static import static
-
+from django.urls import path
 
 from user.views import (
-    RegisterUserView,
+    UserRegistrationView,
+    CityListView,
+    SubjectListView,
+    TeacherListView,
+    TeacherDetailView,
     ActivateAccountView,
-    TeacherProfileView,
-    StudentProfileView,
+    CompleteTeacherProfileView,
+    LanguageListView,
+    CategoriesOfStudentsListView,
+    TeacherProfileMeView,
+    StudentProfileMeView,
+    ChangePasswordView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
 )
 
 app_name = "user"
 
 urlpatterns = [
+    path("cities/", CityListView.as_view(), name="city-list"),
+    path("subjects/", SubjectListView.as_view(), name="subject-list"),
+    path("languages/", LanguageListView.as_view(), name="language-list"),
     path(
-        "register/", RegisterUserView.as_view(), name="register_user"
+        "student-categories/",
+        CategoriesOfStudentsListView.as_view(),
+        name="student-category-list",
     ),
+    # Публічні ендпоінти для вчителів
+    path("teachers/", TeacherListView.as_view(), name="teacher-list"),
+    path("teachers/<int:pk>/", TeacherDetailView.as_view(), name="teacher-detail"),
+    # --- Реєстрація та Активація ---
+    path("register/", UserRegistrationView.as_view(), name="register"),
+    # <str:token> для JWT токена
     path(
-        "activate/<str:token>/", ActivateAccountView.as_view(), name="activate_account"
+        "activate/<str:token>/", ActivateAccountView.as_view(), name="activate-account"
     ),
+
+    # Створення профілю вчителя після реєстрації та активації
     path(
-        "profile/student/<int:user_id>/",
-        StudentProfileView.as_view(),
-        name="student_profile",
+        "profile/teacher/complete/",
+        CompleteTeacherProfileView.as_view(),
+        name="complete-teacher-profile",
     ),
+    # Перегляд та редагування власного профілю вчителя
     path(
-        "profile/teacher/<int:user_id>/",
-        TeacherProfileView.as_view(),
-        name="teacher_profile",
+        "profile/teacher/me/", TeacherProfileMeView.as_view(), name="teacher-profile-me"
+    ),
+    # Перегляд та редагування власного профілю студента
+    path(
+        "profile/student/me/", StudentProfileMeView.as_view(), name="student-profile-me"
+    ),
+
+    # Зміна пароля для аутент. користувача
+    path(
+        "auth/password/change/",
+        ChangePasswordView.as_view(),
+        name="password-change",
+    ),
+    # Запит скид. psswrd
+    path(
+        "auth/password/reset/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    # Підтвердження скидання пароля (токен передається в тілі запиту, не в URL)
+    path(
+        "auth/password/reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
     ),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
