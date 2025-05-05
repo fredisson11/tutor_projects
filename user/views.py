@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from user.models import (
     BaseUser,
@@ -127,9 +128,9 @@ class ActivateAccountView(APIView):
                 )
                 refresh = RefreshToken.for_user(user)
                 redirect_path = (
-                    "/student/profile/me"
+                    "/profile/student/me/"
                     if user.role == BaseUser.ROLE_STUDENT
-                    else "/teacher/profile/me"
+                    else "/profile/teacher/complete/"
                 )
                 return Response(
                     {
@@ -158,7 +159,7 @@ class ActivateAccountView(APIView):
                         logger.warning(
                             f"Student profile already existed for {user.email} (ID: {user.id})."
                         )
-                    redirect_path = "/student/profile/me"
+                    redirect_path = "/profile/student/me/"
                 except Exception as e:
                     logger.error(
                         f"Error creating student profile for {user.email} (ID: {user.id}): {e}"
@@ -172,7 +173,7 @@ class ActivateAccountView(APIView):
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
             elif user.role == BaseUser.ROLE_TEACHER:
-                redirect_path = "/teacher/profile/complete"
+                redirect_path = "/profile/teacher/complete/"
             else:
                 logger.error(
                     f"Unknown role '{user.role}' for user {user.email} (ID: {user.id}) during activation."
@@ -260,7 +261,7 @@ class ChangePasswordView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def __init__(self, **kwargs):
-        super().__init__(kwargs)
+        super().__init__(**kwargs)
         self.object = None
 
     def get_object(self):
@@ -302,3 +303,7 @@ class PasswordResetConfirmView(generics.GenericAPIView):
                 {"detail": _("Password has been reset successfully")},
                 status=status.HTTP_200_OK,
             )
+
+
+class UserLoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]

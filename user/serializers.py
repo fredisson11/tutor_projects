@@ -24,29 +24,34 @@ from user.models import (
     BaseUser,
 )
 
+# from PIL import Image # Якщо потрібна обробка в to_internal_value
+
+# Імпортуємо МОДЕЛІ з teaching
 try:
     from teaching.models import Schedule, Rating
-    from teaching.serializers import ScheduleSerializer
 
-    class PublicRatingSerializer(serializers.Serializer):
-        rating = serializers.IntegerField(read_only=True)
-        comment = serializers.CharField(read_only=True)
-        created_at = serializers.DateTimeField(read_only=True)
-        student_first_name = serializers.CharField(read_only=True)
-
+    # Імпортуємо СЕРІАЛАЙЗЕРИ з teaching для використання тут
+    # Переконайтесь, що ці серіалайзери визначені в teaching/serializers.py
+    from teaching.serializers import ScheduleSerializer, PublicRatingSerializer
 except ImportError:
     Schedule = None
     Rating = None
-    ScheduleSerializer = None
-    PublicRatingSerializer = None
-    print(
-        "WARNING: Could not import teaching models/serializers. Teacher serializers might be limited."
-    )
+
+    # Визначаємо заглушки, якщо імпорт не вдався
+    class ScheduleSerializer(serializers.Serializer):
+        pass
+
+    class PublicRatingSerializer(serializers.Serializer):
+        pass
+
+    print("WARNING: Could not import teaching models/serializers. Using placeholders.")
+
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+# --- Базові серіалайзери довідників ---
 class CitySerializer(serializers.ModelSerializer):
     class Meta:
         model = City
@@ -73,6 +78,7 @@ class CategoriesOfStudentsSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "name_display"]
 
 
+# --- Кастомне поле для фото ---
 class Base64ImageField(serializers.Field):
     def to_internal_value(self, data):
         if isinstance(data, str) and data.startswith("data:image"):
@@ -125,6 +131,7 @@ class Base64ImageField(serializers.Field):
         return placeholder_url
 
 
+# --- Серіалайзери Реєстрації ---
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True, min_length=8, style={"input_type": "password"}
@@ -160,7 +167,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 _("Password must contain at least one digit.")
             )
-        if not re.search(r"[@$!%*?&^#()_+=-]", value):
+        if not re.search(r"[@$.!%*?&^#()_+=-]", value):
             raise serializers.ValidationError(
                 _("Password must contain at least one special character.")
             )
@@ -282,6 +289,9 @@ class TeacherRegistrationSerializer(serializers.ModelSerializer):
         return teacher
 
 
+# --- Серіалайзери Профілів ---
+
+
 class StudentProfileSerializer(serializers.ModelSerializer):
     photo = Base64ImageField(required=False, allow_null=True)
     email = serializers.EmailField(source="user.email", read_only=True)
@@ -299,15 +309,7 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
     is_verified = serializers.BooleanField(read_only=True)
     role = serializers.CharField(source="user.role", read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
-
-    schedule = (
-        ScheduleSerializer(source="schedules", many=True, read_only=True)
-        if ScheduleSerializer
-        else serializers.ReadOnlyField(
-            default=[], help_text="Could not resolve ScheduleSerializer"
-        )
-    )
-
+    schedule = ScheduleSerializer(source="schedules", many=True, read_only=True)
     rating_summary = serializers.SerializerMethodField(read_only=True)
     languages_read = serializers.StringRelatedField(
         source="languages", many=True, read_only=True
@@ -401,7 +403,6 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
                     count=max_count, field=field_name
                 )
             )
-
         return value
 
     def validate_subjects(self, value):
@@ -426,7 +427,6 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
-
         photo_data = validated_data.pop("photo", Ellipsis)
         if photo_data is None:
             instance.photo = None
@@ -434,7 +434,6 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
         elif photo_data is not Ellipsis:
             instance.photo = photo_data["photo"]
             instance.photo_format = photo_data["photo_format"]
-
         return super().update(instance, validated_data)
 
 
@@ -444,37 +443,37 @@ class TeacherPublicProfileSerializer(serializers.ModelSerializer):
     categories = serializers.StringRelatedField(many=True, read_only=True)
     subjects = serializers.StringRelatedField(many=True, read_only=True)
     photo = Base64ImageField(read_only=True)
-
-    schedule = ScheduleSerializer(
-        source='schedules',
-        many=True,
-        read_only=True
-    ) if ScheduleSerializer else serializers.ReadOnlyField(
-        default=[],
-        help_text="Could not resolve ScheduleSerializer"
-    )
+    schedule = ScheduleSerializer(source="schedules", many=True, read_only=True)
     rating_summary = serializers.SerializerMethodField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
-
     phone = serializers.SerializerMethodField()
     social_links_presence = serializers.SerializerMethodField()
-
-    reviews = PublicRatingSerializer(
-        source='ratings',
-        many=True,
-        read_only=True
-    ) if PublicRatingSerializer else serializers.SerializerMethodField(
-        read_only=True
-    )
+    reviews = PublicRatingSerializer(source="ratings", many=True, read_only=True)
 
     class Meta:
         model = Teacher
         fields = [
-            "id", "first_name", "last_name", "age", "photo", "city", "languages",
-            "categories", "subjects", "teaching_experience", "about_me", "hobbies",
-            "education", "lesson_flow", "lesson_price", "is_verified",
+            "id",
+            "first_name",
+            "last_name",
+            "age",
+            "photo",
+            "city",
+            "languages",
+            "categories",
+            "subjects",
+            "teaching_experience",
+            "about_me",
+            "hobbies",
+            "education",
+            "lesson_flow",
+            "lesson_price",
+            "is_verified",
             "phone",
-            "social_links_presence", "schedule", "rating_summary", "reviews",
+            "social_links_presence",
+            "schedule",
+            "rating_summary",
+            "reviews",
         ]
         read_only_fields = fields
 
@@ -483,13 +482,15 @@ class TeacherPublicProfileSerializer(serializers.ModelSerializer):
         if Rating:
             ratings = obj.ratings.all()
             count = ratings.count()
-            average = ratings.aggregate(Avg('rating'))['rating__avg']
-            return {"average": round(average, 2) if average is not None else 0.0, "count": count}
+            average = ratings.aggregate(Avg("rating"))["rating__avg"]
+            return {
+                "average": round(average, 2) if average is not None else 0.0,
+                "count": count,
+            }
         return {"average": 0.0, "count": 0}
 
     def get_phone(self, obj):
-        """Повертає повний телефон, якщо користувач авторизований, інакше None."""
-        request = self.context.get('request')
+        request = self.context.get("request")
         if request and request.user and request.user.is_authenticated:
             return obj.phone
         return None
@@ -503,19 +504,11 @@ class TeacherPublicProfileSerializer(serializers.ModelSerializer):
             "instagram": bool(obj.instagram),
         }
 
-    @staticmethod
-    def get_reviews(obj):
-        if not PublicRatingSerializer:
-            return []
-
-        return []
-
 
 class TeacherListSerializer(serializers.ModelSerializer):
     city = serializers.StringRelatedField(read_only=True)
     subjects = serializers.StringRelatedField(many=True, read_only=True)
     rating_summary = serializers.SerializerMethodField(read_only=True)
-
     photo = Base64ImageField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
     age = serializers.IntegerField(read_only=True)
@@ -524,7 +517,6 @@ class TeacherListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Teacher
-
         fields = [
             "id",
             "first_name",
@@ -554,6 +546,7 @@ class TeacherListSerializer(serializers.ModelSerializer):
         return {"average": 0.0, "count": 0}
 
 
+# --- Серіалайзери Зміни/Скидання Паролю ---
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(
         required=True, style={"input_type": "password"}
@@ -572,7 +565,7 @@ class ChangePasswordSerializer(serializers.Serializer):
             )
         if old_password == new_password:
             raise serializers.ValidationError(
-                {"new_password": _("New password cannot be the same as the old one.")}
+                {"new_password": _("New password cannot be the same.")}
             )
         try:
             UserRegistrationSerializer.validate_password(new_password)
@@ -595,9 +588,7 @@ class PasswordResetSerializer(serializers.Serializer):
             user = User.objects.get(email=value, is_active=True)
             self.context["user"] = user
         except User.DoesNotExist:
-            raise serializers.ValidationError(
-                _("User with this email address not found or is not active.")
-            )
+            raise serializers.ValidationError(_("User not found or is not active."))
         return value
 
     def save(self):
@@ -612,12 +603,8 @@ class PasswordResetSerializer(serializers.Serializer):
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
         reset_url = f"{settings.FRONTEND_URL}/password-reset/confirm/{token}"
-
-        subject = _("Password Reset Request for Tutor Project")
-        message = _(
-            f"Please click the link below to reset your password:\n\n{reset_url}\n\nIf you didn't request this, "
-            f"please ignore this email."
-        )
+        subject = _("Password Reset Request")
+        message = _(f"Reset password link: {reset_url}")
         try:
             send_mail(
                 subject,
@@ -629,9 +616,7 @@ class PasswordResetSerializer(serializers.Serializer):
             logger.info(f"Password reset email sent to {user.email}")
         except Exception as e:
             logger.error(f"Error sending password reset email to {user.email}: {e}")
-            raise serializers.ValidationError(
-                _("Failed to send password reset email. Please try again later.")
-            )
+            raise serializers.ValidationError(_("Failed to send email."))
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
@@ -648,36 +633,29 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"new_password_confirm": _("Passwords do not match.")}
             )
-
         try:
             UserRegistrationSerializer.validate_password(data["new_password"])
         except serializers.ValidationError as e:
             raise serializers.ValidationError({"new_password": e.detail})
-
         try:
             token = data["token"]
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             if payload.get("purpose") != "password_reset":
-                raise jwt.InvalidTokenError("Invalid token purpose.")
+                raise jwt.InvalidTokenError("Invalid purpose.")
             user_id = payload.get("user_id")
             if not user_id:
                 raise jwt.InvalidTokenError("Token payload missing user_id")
             user = User.objects.get(id=user_id, is_active=True)
             self.context["user"] = user
         except jwt.ExpiredSignatureError:
-            raise serializers.ValidationError(
-                {"token": _("Password reset link has expired.")}
-            )
+            raise serializers.ValidationError({"token": _("Link expired.")})
         except (jwt.InvalidTokenError, jwt.DecodeError, User.DoesNotExist):
-            raise serializers.ValidationError(
-                {"token": _("Password reset link is invalid.")}
-            )
-
+            raise serializers.ValidationError({"token": _("Link invalid.")})
         return data
 
     def save(self):
         user = self.context["user"]
         user.set_password(self.validated_data["new_password"])
         user.save()
-        logger.info(f"Password reset successfully for user {user.email}")
+        logger.info(f"Password reset for user {user.email}")
         return user

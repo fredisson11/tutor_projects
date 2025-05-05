@@ -1,12 +1,8 @@
-# user/models.py
-
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.utils.translation import gettext_lazy as _
 
-
-# --- Довідники --- #
 
 class City(models.Model):
     name = models.CharField(_("City"), max_length=100, unique=True)
@@ -51,7 +47,6 @@ class CategoriesOfStudents(models.Model):
         ("9-12", _("Grades 9‑12")),
         ("adult", _("Adult")),
     ]
-    # Збільшено max_length
     name = models.CharField(
         _("Category"), max_length=15, choices=CATEGORY_CHOICES, unique=True
     )
@@ -149,8 +144,6 @@ class Teacher(models.Model):
     instagram = models.CharField(_("Instagram"), max_length=100, blank=True, null=True)
     is_verified = models.BooleanField(_("Verified"), default=False)
     is_qualified = models.BooleanField(_("Qualified"), default=False)
-
-    # кешування рейтингу
     # average_rating = models.FloatField(_("Average Rating"), default=0.0)
     # rating_count = models.PositiveIntegerField(_("Rating Count"), default=0)
 
@@ -168,7 +161,7 @@ class Student(models.Model):
     user = models.OneToOneField(BaseUser, on_delete=models.CASCADE, related_name="student_profile")
     first_name = models.CharField(_("First name"), max_length=50, blank=True)
     last_name = models.CharField(_("Last name"), max_length=50, blank=True)
-    phone = models.CharField(_("Phone"), max_length=20, blank=True, null=True)
+    phone = models.PositiveIntegerField(_("Phone"), max_length=20, blank=True, null=True)
     photo = models.BinaryField(_("Photo"), null=True, blank=True)
     photo_format = models.CharField(_("Photo format"), max_length=10, null=True, blank=True)
 

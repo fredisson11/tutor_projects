@@ -40,4 +40,18 @@ class IsProfileOwner(permissions.BasePermission):
     message = "Ви не маєте дозволу на редагування цього профілю."
 
     def has_object_permission(self, request, view, obj):
-        return obj.user == request.user
+        if hasattr(obj, "user"):
+            return obj.user == request.user
+        return False
+
+
+class DenyAll(permissions.BasePermission):
+    """
+    Забороняє доступ для будь-якого користувача.
+    """
+
+    def has_permission(self, request, view):
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        return False
