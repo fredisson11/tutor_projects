@@ -80,6 +80,7 @@ jobs:
       - name: "🔧 Build image"
         run: |
           docker build \
+            --no-cache \
             --progress=plain \
             -t "${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" .
 
