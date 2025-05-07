@@ -26,11 +26,11 @@ RUN adduser --disabled-password --no-create-home my_user
 
 COPY . .
 
-RUN chmod +x /entrypoint.sh && \
+RUN chmod +x  /app/entrypoint.sh && \
     chown -R my_user /app && \
     chmod -R 755 /app
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT [" /app/entrypoint.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
