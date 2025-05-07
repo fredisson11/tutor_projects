@@ -26,7 +26,7 @@ RUN adduser --disabled-password --no-create-home my_user
 
 COPY . .
 
-RUN chmod +x  /app/entrypoint.sh && \
+RUN chmod +x /app/entrypoint.sh && \
     chown -R my_user /app && \
     chmod -R 755 /app
 
