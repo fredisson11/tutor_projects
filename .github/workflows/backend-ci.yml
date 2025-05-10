@@ -1,0 +1,109 @@
+name: "⚙️ CI/CD for Backend"
+run-name: "${{ github.actor }} on ${{ github.ref_name }} - ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  IMAGE_TAG: "${{ github.sha }}"
+
+jobs:
+  test-code:
+    name: "🧪 Lint & Security Checks (Simulated)"
+    runs-on: ubuntu-latest
+
+    # ❗ This job is non-blocking and will always succeed,
+    # because it only contains basic code quality checks.
+    # It's included to simulate a proper testing pipeline in the absence of real tests,
+    # and serves as a placeholder for future unit and integration tests.
+    continue-on-error: true
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v3
+
+      - name: "🐍 Set up Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
+      - name: "📦 Install test tools"
+        run: pip install flake8 bandit pytest
+
+      - name: "🎨 Run flake8 (style checks)"
+        run: flake8 .
+        continue-on-error: true
+
+      - name: "🔐 Run bandit (security checks) and save report"
+        run: |
+          mkdir -p reports
+          bandit -r . -f txt -o reports/bandit-report.txt || true
+        continue-on-error: true
+
+      - name: "📤 Upload bandit report"
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: reports/bandit-report.txt
+        continue-on-error: true
+
+      - name: "🧪 Run unit tests uses Pytest (placeholder)"
+        # Placeholder for future unit tests
+        # This will always pass unless actual tests are added to the `tests/` directory.
+        run: |
+          echo "Running unit tests..."
+          pytest tests || true
+
+  build-and-push:
+    name: "🐳 Build & Push Docker Image"
+    needs: test-code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Checkout code"
+        uses: actions/checkout@v3
+
+      - name: "🔐 Log in to Docker Hub"
+        uses: docker/login-action@v3
+        with:
+          username: "${{ secrets.DOCKERHUB_USERNAME }}"
+          password: "${{ secrets.DOCKERHUB_TOKEN }}"
+
+      - name: "🔧 Build image"
+        run: |
+          docker build \
+            --progress=plain \
+            -t "${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.IMAGE_REPO }}:${{ env.IMAGE_TAG }}" .
+
+      - name: "🚀 Push image"
+        run: docker push "${{ secrets.DOCKERHUB_USERNAME }}/${{ vars.IMAGE_REPO }}:${{ env.IMAGE_TAG }}"
+
+  call-cd:
+    name: "🛰️ Trigger Centralized Deployment"
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📡 Trigger centralized deploy"
+        run: |
+          set -e
+          curl -i -X POST \
+            -H "Authorization: Bearer ${{ secrets.INFRASTRUCTURE_REPO_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/fredisson11/tp154-infrastructure/actions/workflows/cd-main.yml/dispatches \
+            -d '{
+              "ref": "main",
+              "inputs": {
+                "MICROSVC_TYPE": "backend",
+                "IMAGE_REPO": "${{ vars.IMAGE_REPO }}",
+                "IMAGE_TAG": "${{ env.IMAGE_TAG }}"
+              }
+            }'

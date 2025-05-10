@@ -1,11 +1,12 @@
+from __future__ import absolute_import, unicode_literals
+import os
 from celery import Celery
-from celery.schedules import crontab
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tutor_projects.settings")
 
 app = Celery("tutor_projects")
 
-app.conf.beat_schedule = {
-    "send_lesson_reminders_every_5_minutes": {
-        "task": "tutor_projects.tasks.send_lesson_reminders",
-        "schedule": crontab(minute="*/5")
-    },
-}
+app.config_from_object("django.conf:settings", namespace="CELERY")
+
+
+app.autodiscover_tasks()

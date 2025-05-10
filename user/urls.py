@@ -1,32 +1,64 @@
 from django.urls import path
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-    TokenVerifyView,
-)
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from user.views import (
-    RegisterStudentAPIView,
-    RegisterTeacherAPIView,
-    ActivateAccountAPIView,
-    LoginAPIView,
-    StudentMeAPIView,
-    TeacherMeAPIView,
-    ChangePasswordAPIView,
+    UserRegistrationView,
+    CityListView,
+    SubjectListView,
+    TeacherListView,
+    TeacherDetailView,
+    ActivateAccountView,
+    CompleteTeacherProfileView,
+    LanguageListView,
+    CategoriesOfStudentsListView,
+    TeacherProfileMeView,
+    StudentProfileMeView,
+    ChangePasswordView,
+    PasswordResetRequestView,
+    PasswordResetConfirmView,
+    UserLoginView,
 )
 
 app_name = "user"
 
 urlpatterns = [
-    path("register/student/", RegisterStudentAPIView.as_view(), name="register_student"),
-    path("register/teacher/", RegisterTeacherAPIView.as_view(), name="register_teacher"),
-    path("token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
-    path("me/student/", StudentMeAPIView.as_view(), name="student_me"),
-    path("me/teacher/", TeacherMeAPIView.as_view(), name="teacher_me"),
-    path("api/activate/<str:uidb64>/<str:token>/", ActivateAccountAPIView.as_view(), name="activate"),
-    path("api/login/", LoginAPIView.as_view(), name="login"),
-    path("me/student/change-password/", ChangePasswordAPIView.as_view(), name="student_change_password"),
-    path("me/teacher/change-password/", ChangePasswordAPIView.as_view(), name="teacher_change_password"),
+    path("cities/", CityListView.as_view(), name="city-list"),
+    path("subjects/", SubjectListView.as_view(), name="subject-list"),
+    path("languages/", LanguageListView.as_view(), name="language-list"),
+    path(
+        "student-categories/",
+        CategoriesOfStudentsListView.as_view(),
+        name="student-category-list",
+    ),
+    path("teachers/", TeacherListView.as_view(), name="teacher-list"),
+    path("teachers/<int:pk>/", TeacherDetailView.as_view(), name="teacher-detail"),
+    path("register/", UserRegistrationView.as_view(), name="register"),
+    path(
+        "activate/<str:token>/", ActivateAccountView.as_view(), name="activate-account"
+    ),
+    path(
+        "profile/teacher/complete/",
+        CompleteTeacherProfileView.as_view(),
+        name="complete-teacher-profile",
+    ),
+    path(
+        "profile/teacher/me/", TeacherProfileMeView.as_view(), name="teacher-profile-me"
+    ),
+    path(
+        "profile/student/me/", StudentProfileMeView.as_view(), name="student-profile-me"
+    ),
+
+    path("auth/login/", UserLoginView.as_view(), name="token_obtain_pair"),
+    path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("auth/password/change/", ChangePasswordView.as_view(), name="password-change"),
+    path(
+        "auth/password/reset/",
+        PasswordResetRequestView.as_view(),
+        name="password-reset-request",
+    ),
+    path(
+        "auth/password/reset/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="password-reset-confirm",
+    ),
 ]

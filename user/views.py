@@ -1,164 +1,330 @@
-from rest_framework import status, generics
+import logging
+
+import jwt
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
+from rest_framework import generics, status, filters
+from rest_framework.exceptions import ValidationError, PermissionDenied
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth import authenticate, update_session_auth_hash
-from django.core.mail import send_mail
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
-from django.template.loader import render_to_string
-from django.contrib.auth.tokens import default_token_generator
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.views import TokenObtainPairView
 
-from tutor_projects.settings import EMAIL_HOST_USER
-from user.models import Student, Teacher
+
+from user.models import (
+    BaseUser,
+    Teacher,
+    Student,
+    City,
+    Subject,
+    Language,
+    CategoriesOfStudents,
+)
+from user.permissions import IsTeacher, IsStudent, IsProfileOwner
 from user.serializers import (
-    StudentSerializer,
-    TeacherSerializer,
+    UserRegistrationSerializer,
+    TeacherCabinetSerializer,
+    StudentProfileSerializer,
+    CitySerializer,
+    SubjectSerializer,
+    LanguageSerializer,
+    CategoriesOfStudentsSerializer,
+    PasswordResetSerializer,
+    PasswordResetConfirmSerializer,
+    TeacherRegistrationSerializer,
     ChangePasswordSerializer,
+    TeacherListSerializer,
+    TeacherPublicProfileSerializer,
 )
 
+User = get_user_model()
+logger = logging.getLogger(__name__)
 
-class BaseRegisterAPIView(APIView):
-    """Базовий клас для реєстрації користувачів"""
 
-    def register_user(self, serializer, request):
-        """Загальний метод для реєстрації користувачів"""
-        if serializer.is_valid():
-            try:
-                user = serializer.save()
-                self.send_activation_email(request, user)
-                return Response(
-                    {"message": "Перевірте вашу пошту для підтвердження акаунту"},
-                    status=status.HTTP_201_CREATED,
+class CityListView(generics.ListAPIView):
+    queryset = City.objects.all()
+    serializer_class = CitySerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+
+class SubjectListView(generics.ListAPIView):
+    queryset = Subject.objects.all()
+    serializer_class = SubjectSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+
+class LanguageListView(generics.ListAPIView):
+    queryset = Language.objects.all()
+    serializer_class = LanguageSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+
+class CategoriesOfStudentsListView(generics.ListAPIView):
+    queryset = CategoriesOfStudents.objects.all()
+    serializer_class = CategoriesOfStudentsSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+
+class TeacherListView(generics.ListAPIView):
+    queryset = (
+        Teacher.objects.all()
+        .select_related("user", "city")
+        .prefetch_related("subjects", "categories")
+    )
+    serializer_class = TeacherListSerializer
+    permission_classes = [AllowAny]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        "first_name",
+        "last_name",
+        "about_me",
+        "subjects__name",
+        "city__name",
+        "categories__name",
+    ]
+    ordering_fields = ["lesson_price", "teaching_experience", "created_at"]
+    pagination_class = None
+
+
+class TeacherDetailView(generics.RetrieveAPIView):
+    queryset = Teacher.objects.all()
+    serializer_class = TeacherPublicProfileSerializer
+    permission_classes = [AllowAny]
+    lookup_field = "pk"
+
+
+class UserRegistrationView(generics.CreateAPIView):
+    serializer_class = UserRegistrationSerializer
+    permission_classes = [AllowAny]
+
+
+class ActivateAccountView(APIView):
+    permission_classes = [AllowAny]
+
+    @staticmethod
+    def get(request, token):
+        try:
+            payload = jwt.decode(
+                token,
+                settings.SECRET_KEY,
+                algorithms=["HS256"],
+                options={"verify_exp": True},
+            )
+            if payload.get("purpose") != "activation":
+                raise jwt.InvalidTokenError("Invalid token purpose.")
+            user_id = payload.get("user_id")
+            if not user_id:
+                raise jwt.InvalidTokenError("Token payload missing user_id")
+            user = get_object_or_404(User, id=user_id)
+
+            if user.is_active:
+                logger.warning(
+                    f"Account already active for user {user.email} (ID: {user.id})."
                 )
-            except Exception as e:
-                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                refresh = RefreshToken.for_user(user)
+                if user.role == BaseUser.ROLE_STUDENT:
+                    redirect_path = "/profile/student/me/"
+                elif user.role == BaseUser.ROLE_TEACHER:
+                    redirect_path = "/profile/teacher/complete/"
+                else:
+                    redirect_path = "/"
 
-    @staticmethod
-    def send_activation_email(request, user):
-        """Відправляє email для підтвердження акаунту"""
-        try:
-            token = default_token_generator.make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            activation_link = (
-                f"{request.build_absolute_uri('/api/activate/')}{uid}/{token}/"
-            )
-            subject = "Підтвердіть ваш акаунт"
-            message = render_to_string(
-                "registration/email_confirmation.html",
-                {"activation_link": activation_link},
-            )
-            send_mail(subject, message, EMAIL_HOST_USER, [user.email])
-        except Exception as e:
-            raise Exception(f"Не вдалося надіслати email: {str(e)}")
+                return Response(
+                    {
+                        "message": _("Account is already activated. You can log in."),
+                        "access_token": str(refresh.access_token),
+                        "refresh_token": str(refresh),
+                        "redirect_to": settings.FRONTEND_URL.rstrip("/")
+                        + redirect_path,
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
-
-class RegisterStudentAPIView(BaseRegisterAPIView):
-    """API для реєстрації студента"""
-
-    def post(self, request):
-        serializer = StudentSerializer(data=request.data)
-        return self.register_user(serializer, request)
-
-
-class RegisterTeacherAPIView(BaseRegisterAPIView):
-    """API для реєстрації викладача"""
-
-    def post(self, request):
-        serializer = TeacherSerializer(data=request.data)
-        return self.register_user(serializer, request)
-
-
-class ActivateAccountAPIView(APIView):
-    """API для активації акаунту через email"""
-
-    @staticmethod
-    def get(request, uidb64, token):
-        try:
-            uid = force_str(urlsafe_base64_decode(uidb64))
-            user = (
-                Student.objects.filter(pk=uid).first()
-                or Teacher.objects.filter(pk=uid).first()
-            )
-        except (TypeError, ValueError, OverflowError):
-            user = None
-
-        if user and default_token_generator.check_token(user, token):
             user.is_active = True
-            user.save()
-            return Response(
-                {"message": "Акаунт активовано, тепер ви можете увійти"},
-                status=status.HTTP_200_OK,
+            user.save(update_fields=["is_active"])
+            logger.info(
+                f"Account activated successfully for {user.email} (ID: {user.id})."
             )
 
-        return Response(
-            {"error": "Недійсний або застарілий токен"},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+            redirect_path = "/"
+            if user.role == BaseUser.ROLE_STUDENT:
+                try:
+                    student_profile, created = Student.objects.get_or_create(user=user)
+                    if created:
+                        logger.info(
+                            f"Student profile created for {user.email} (ID: {user.id})."
+                        )
+                    else:
+                        logger.warning(
+                            f"Student profile already existed for {user.email} (ID: {user.id})."
+                        )
+                    redirect_path = "/profile/student/me/"
+                except Exception as e:
+                    logger.error(
+                        f"Error creating/retrieving student profile for {user.email} (ID: {user.id}): {e}"
+                    )
+                    refresh = RefreshToken.for_user(user)
+                    return Response(
+                        {
+                            "message": _(
+                                "Account activated, but there was an issue accessing/creating your student profile. "
+                                "Please contact support."
+                            ),
+                            "access_token": str(refresh.access_token),
+                            "refresh_token": str(refresh),
+                            "redirect_to": settings.FRONTEND_URL.rstrip("/") + "/",
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+            elif user.role == BaseUser.ROLE_TEACHER:
+                redirect_path = "/profile/teacher/complete/"
+            else:
+                logger.error(
+                    f"Unknown role '{user.role}' for user {user.email} (ID: {user.id}) during activation."
+                )
+                redirect_path = "/"
 
-
-class LoginAPIView(APIView):
-    """API для авторизації"""
-
-    @staticmethod
-    def post(request):
-        email = request.data.get("email")
-        password = request.data.get("password")
-
-        user = authenticate(email=email, password=password)
-        if user:
             refresh = RefreshToken.for_user(user)
             return Response(
-                {"refresh": str(refresh), "access": str(refresh.access_token)},
+                {
+                    "message": _("Account activated successfully!"),
+                    "access_token": str(refresh.access_token),
+                    "refresh_token": str(refresh),
+                    "redirect_to": settings.FRONTEND_URL.rstrip("/") + redirect_path,
+                },
                 status=status.HTTP_200_OK,
             )
 
-        return Response(
-            {"error": "Невірні облікові дані"}, status=status.HTTP_400_BAD_REQUEST
-        )
-
-
-class StudentMeAPIView(generics.RetrieveAPIView):
-    """API для отримання інформації про поточного студента"""
-
-    serializer_class = StudentSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user.student_profile
-
-
-class TeacherMeAPIView(generics.RetrieveAPIView):
-    """API для отримання інформації про поточного викладача"""
-
-    serializer_class = TeacherSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_object(self):
-        return self.request.user.teacher_profile
-
-
-class ChangePasswordAPIView(APIView):
-    """В'юшка для зміни пароля для студента чи викладача"""
-
-    @staticmethod
-    def post(request, *args, **kwargs):
-        serializer = ChangePasswordSerializer(
-            data=request.data, context={"request": request}
-        )
-
-        if serializer.is_valid():
-            user = request.user
-            new_password = serializer.validated_data["new_password"]
-            user.set_password(new_password)
-            user.save()
-
-            update_session_auth_hash(request, user)
-
+        except jwt.ExpiredSignatureError:
+            logger.warning(f"Activation token expired: {token}")
             return Response(
-                {"message": "Пароль успішно змінено"}, status=status.HTTP_200_OK
+                {"error": _("Activation link has expired.")},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except (jwt.InvalidTokenError, jwt.DecodeError):
+            logger.warning(f"Invalid activation token: {token}")
+            return Response(
+                {"error": _("Activation link is invalid.")},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except User.DoesNotExist:
+            logger.error(f"User not found for activation token: {token}")
+            return Response(
+                {"error": _("User not found.")}, status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.exception(f"Unexpected error during account activation: {e}")
+            return Response(
+                {"error": _("An unexpected error occurred during activation.")},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class CompleteTeacherProfileView(generics.CreateAPIView):
+    serializer_class = TeacherRegistrationSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Teacher.objects.none()
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        if user.role != BaseUser.ROLE_TEACHER:
+            raise PermissionDenied(
+                _("Only users with the 'teacher' role can create a teacher profile.")
+            )
+        if hasattr(user, "teacher_profile") and user.teacher_profile is not None:
+            raise ValidationError(_("Teacher profile already exists for this user."))
+
+        serializer.save(user=user)
+        logger.info(f"Teacher profile completed for user {user.email} (ID: {user.id}).")
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        response_data = serializer.data
+        try:
+            redirect_url = request.build_absolute_uri(
+                reverse("user:teacher-profile-me")
+            )
+            response_data["redirect_to"] = redirect_url
+        except Exception as e:
+            logger.error(f"Could not reverse URL for teacher-profile-me: {e}")
+        return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class TeacherProfileMeView(generics.RetrieveUpdateAPIView):
+    serializer_class = TeacherCabinetSerializer
+    permission_classes = [IsAuthenticated, IsTeacher, IsProfileOwner]
+
+    def get_object(self):
+        return get_object_or_404(Teacher, user=self.request.user)
+
+
+class StudentProfileMeView(generics.RetrieveUpdateAPIView):
+    serializer_class = StudentProfileSerializer
+    permission_classes = [IsAuthenticated, IsStudent, IsProfileOwner]
+
+    def get_object(self):
+        student_profile, created = Student.objects.get_or_create(user=self.request.user)
+        if created:
+            logger.warning(
+                f"Student profile was missing and got created on demand for user {self.request.user.email}"
+            )
+        return student_profile
+
+
+class ChangePasswordView(generics.UpdateAPIView):
+    serializer_class = ChangePasswordSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            logger.info(
+                f"Password changed successfully for user {self.request.user.email} (ID: {self.request.user.id})."
+            )
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PasswordResetRequestView(generics.GenericAPIView):
+    serializer_class = PasswordResetSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(
+                {"detail": _("Password reset email sent")}, status=status.HTTP_200_OK
+            )
+
+
+class PasswordResetConfirmView(generics.GenericAPIView):
+    serializer_class = PasswordResetConfirmSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(
+                {"detail": _("Password has been reset successfully")},
+                status=status.HTTP_200_OK,
+            )
+
+
+class UserLoginView(TokenObtainPairView):
+    permission_classes = [AllowAny]
