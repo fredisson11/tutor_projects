@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12.10-slim
 
 ENV PYTHONUNBUFFERED=1
 
@@ -24,14 +24,13 @@ RUN pip install -v --no-cache-dir -r requirements.txt
 
 RUN adduser --disabled-password --no-create-home my_user
 
-RUN mkdir -p /media && \
-    chown -R my_user /media && \
-    chmod -R 755 /media
-
 COPY . .
 
-RUN chown -R my_user /app && chmod -R 755 /app
+RUN chmod +x  /app/entrypoint.sh && \
+    chown -R my_user /app && \
+    chmod -R 755 /app
 
 EXPOSE 8000
 
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
