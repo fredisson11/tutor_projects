@@ -20,10 +20,10 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "34.79.160.113,localhost").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "34.77.110.157,localhost").split(",")
 
 INTERNAL_IPS = [
-    "127.0.0.1",
+    "34.77.110.157",
 ]
 
 # Application definition
@@ -213,7 +213,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL",)
 
 # URL фронтенду для листів активації/скидання пароля
-FRONTEND_URL = os.getenv("FRONTEND_URL", "34.79.160.113/api/user")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "34.77.110.157/api/user")
 
 ACTIVATION_TOKEN_LIFETIME_HOURS = int(os.getenv("ACTIVATION_TOKEN_LIFETIME_HOURS", 24))
 PASSWORD_RESET_TOKEN_LIFETIME_HOURS = int(
