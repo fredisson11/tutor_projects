@@ -178,8 +178,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             )
             self.send_activation_email(user.email, activation_url)
         except Exception as e:
-            logger.error(f"Error sending activation email for {user.email}: {e}")
-            pass
+            logger.error(
+                f"Failed to send activation email for {user.email}. "
+                f"Error: {e}. Deleting partially created user to allow re-registration."
+            )
+            user.delete()
+            raise serializers.ValidationError(
+                _(
+                    "We encountered an issue setting up your "
+                    "account: the activation email could not be sent. "
+                    "Please try registering again. If the problem persists, "
+                    "please contact support."
+                ),
+                code="activation_email_failed",
+            )
         return user
 
     @staticmethod
@@ -194,7 +206,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def send_activation_email(email, activation_url):
-        subject = _("Account Activation for Tutor Project")
+        subject = _("Account Activation for Astra +")
         message = _(
             f"Please click the link below to activate your account:\n\n{activation_url}\n\nIf you didn't request "
             f"this, please ignore this email."
@@ -662,7 +674,14 @@ class PasswordResetSerializer(serializers.Serializer):
             logger.info(f"Password reset email sent to {user.email}")
         except Exception as e:
             logger.error(f"Error sending password reset email to {user.email}: {e}")
-            pass
+            raise serializers.ValidationError(
+                _(
+                    "We encountered an issue sending the password reset email."
+                    "Please try again. If the problem persists, "
+                    "please contact support."
+                ),
+                code="password_reset_email_failed",
+            )
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
@@ -730,4 +749,3 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.save(update_fields=["password"])
         logger.info(f"Password successfully reset for user {user.email}")
         return user
-
