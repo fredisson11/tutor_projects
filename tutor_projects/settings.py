@@ -20,7 +20,7 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "34.77.110.157,localhost").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "34.77.110.157,127.0.0.1").split(",")
 
 INTERNAL_IPS = [
     "34.77.110.157",
@@ -55,7 +55,11 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://34.79.160.113,https://34.79.160.113").split(",")
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "http:localhost:3000,"
+    "https://34.79.160.113,"
+).split(",")
 CORS_ALLOW_CREDENTIALS = True
 
 
@@ -213,7 +217,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL",)
 
 # URL фронтенду для листів активації/скидання пароля
-FRONTEND_URL = os.getenv("FRONTEND_URL", "34.77.110.157/api/user")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "34.77.110.157:8000/api/user")
 
 ACTIVATION_TOKEN_LIFETIME_HOURS = int(os.getenv("ACTIVATION_TOKEN_LIFETIME_HOURS", 24))
 PASSWORD_RESET_TOKEN_LIFETIME_HOURS = int(
