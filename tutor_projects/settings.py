@@ -57,7 +57,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS",
-    "http://34.79.160.113,"
+    "http://localhost:3000"
 ).split(",")
 
 CORS_ALLOW_CREDENTIALS = True
