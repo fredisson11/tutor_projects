@@ -90,7 +90,7 @@ class TeacherListView(generics.ListAPIView):
         "city__name",
         "categories__name",
     ]
-    ordering_fields = ["lesson_price", "teaching_experience", "created_at"]
+    ordering_fields = ["lesson_price", "teaching_experience", "created_at, is_verified",]
     pagination_class = None
 
 
@@ -199,6 +199,7 @@ class ActivateAccountView(APIView):
                     "access_token": str(refresh.access_token),
                     "refresh_token": str(refresh),
                     "redirect_to": settings.FRONTEND_URL.rstrip("/") + redirect_path,
+                    "role": user.role,
                 },
                 status=status.HTTP_200_OK,
             )
