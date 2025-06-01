@@ -217,7 +217,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL",)
 
 # URL фронтенду для листів активації/скидання пароля
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://34.22.148.120:3000/api/user")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://34.22.148.120:3000/activate/[token]")
 
 ACTIVATION_TOKEN_LIFETIME_HOURS = int(os.getenv("ACTIVATION_TOKEN_LIFETIME_HOURS", 24))
 PASSWORD_RESET_TOKEN_LIFETIME_HOURS = int(
