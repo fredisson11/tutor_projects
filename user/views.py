@@ -39,6 +39,7 @@ from user.serializers import (
     ChangePasswordSerializer,
     TeacherListSerializer,
     TeacherPublicProfileSerializer,
+    MyTokenObtainPairSerializer,
 )
 
 User = get_user_model()
@@ -329,3 +330,5 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
 class UserLoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
+    serializer_class = MyTokenObtainPairSerializer
+    

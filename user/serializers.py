@@ -11,6 +11,8 @@ from django.core.validators import validate_email
 from django.db.models import Avg
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import Token
 
 from user.models import (
     Student,
@@ -749,3 +751,31 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         user.save(update_fields=["password"])
         logger.info(f"Password successfully reset for user {user.email}")
         return user
+
+
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user: BaseUser) -> Token:
+        token = super().get_token(user)
+
+        token["email"] = user.email
+        token["role"] = user.role
+
+        first_name = None
+        last_name = None
+
+        if user.role == BaseUser.ROLE_TEACHER:
+            if hasattr(user, "teacher_profile") and user.teacher_profile:
+                first_name = user.teacher_profile.first_name
+                last_name = user.teacher_profile.last_name
+        elif user.role == BaseUser.ROLE_STUDENT:
+            if hasattr(user, "student_profile") and user.student_profile:
+                first_name = user.student_profile.first_name
+                last_name = user.student_profile.last_name
+        
+        if first_name:
+            token["first_name"] = first_name
+        if last_name:
+            token["last_name"] = last_name
+        
+        return token
