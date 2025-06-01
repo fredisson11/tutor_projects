@@ -347,7 +347,7 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
     photo = Base64ImageField(required=False, allow_null=True)
 
     city = serializers.PrimaryKeyRelatedField(
-        queryset=City.objects.all(), required=False, allow_null=True
+        queryset=City.objects.all(), required=True, allow_null=True
     )
     languages = serializers.PrimaryKeyRelatedField(
         queryset=Language.objects.all(),
