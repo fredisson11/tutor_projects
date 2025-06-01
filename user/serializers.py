@@ -226,7 +226,7 @@ class TeacherRegistrationSerializer(serializers.ModelSerializer):
         queryset=Language.objects.all(), many=True, required=True
     )
     categories = serializers.PrimaryKeyRelatedField(
-        queryset=CategoriesOfStudents.objects.all(), required=True
+        queryset=CategoriesOfStudents.objects.all(), many=True, required=True
     )
     subjects = serializers.PrimaryKeyRelatedField(
         queryset=Subject.objects.all(), many=True, required=True
@@ -355,7 +355,7 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
         required=False,
     )
     categories = serializers.PrimaryKeyRelatedField(
-        queryset=CategoriesOfStudents.objects.all(), required=False
+        queryset=CategoriesOfStudents.objects.all(), many=True, required=False
     )
     subjects = serializers.PrimaryKeyRelatedField(
         queryset=Subject.objects.all(), many=True, required=False

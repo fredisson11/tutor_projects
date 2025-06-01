@@ -134,7 +134,7 @@ class Teacher(models.Model):
     )
     first_name = models.CharField(_("First name"), max_length=50)
     last_name = models.CharField(_("Last name"), max_length=50)
-    age = models.PositiveIntegerField(_("Age"), null=True, blank=True)
+    age = models.PositiveIntegerField(_("Age"))
 
     languages = models.ManyToManyField(
         Language, verbose_name=_("Languages"), blank=True
