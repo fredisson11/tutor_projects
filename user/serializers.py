@@ -655,7 +655,7 @@ class PasswordResetSerializer(serializers.Serializer):
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
         reset_url = (
-            f"{settings.FRONTEND_URL.rstrip('/')}/password-reset/confirm/{token}"
+            f"{settings.FRONTEND_URL.rstrip('/')}/password-reset/{token}"
         )
 
         subject = _("Password Reset Request for Astra +")
