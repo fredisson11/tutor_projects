@@ -658,7 +658,7 @@ class PasswordResetSerializer(serializers.Serializer):
             f"{settings.FRONTEND_URL.rstrip('/')}/password-reset/confirm/{token}"
         )
 
-        subject = _("Password Reset Request for Tutor Project")
+        subject = _("Password Reset Request for Astra +")
         message = _(
             f"You requested a password reset for your account.\n"
             f"\nPlease click the link below to set a new password:\n{reset_url}\n\n"
