@@ -296,6 +296,8 @@ class TeacherRegistrationSerializer(serializers.ModelSerializer):
             teacher.photo_format = photo_internal_data["photo_format"]
             teacher.save(update_fields=["photo", "photo_format"])
 
+        teacher.refresh_from_db()
+    
         return teacher
 
 
@@ -324,6 +326,8 @@ class StudentProfileSerializer(serializers.ModelSerializer):
             instance.photo = photo_internal_data["photo"]
             instance.photo_format = photo_internal_data["photo_format"]
             instance.save(update_fields=["photo", "photo_format"])
+            
+        instance.refresh_from_db()
 
         return instance
 
@@ -469,6 +473,8 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
         if subjects_data is not None:
             instance.subjects.set(subjects_data)
 
+        instance.refresh_from_db()
+        
         return instance
 
 
