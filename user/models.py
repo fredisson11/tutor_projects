@@ -142,10 +142,7 @@ class Teacher(models.Model):
     phone = models.CharField(
         _("Phone"), validators=[phone_regex], max_length=20, blank=True, null=True
     )
-    photo = models.BinaryField(_("Photo"), null=True, blank=True)
-    photo_format = models.CharField(
-        _("Photo format"), max_length=10, null=True, blank=True
-    )
+    photo = models.ImageField(upload_to='teacher_photos/', null=True, blank=True)
     city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True, blank=True)
     categories = models.ManyToManyField(
         CategoriesOfStudents, related_name="teachers", blank=True
@@ -185,10 +182,7 @@ class Student(models.Model):
     phone = models.CharField(
         _("Phone"), validators=[phone_regex], max_length=20, blank=True, null=True
     )
-    photo = models.BinaryField(_("Photo"), null=True, blank=True)
-    photo_format = models.CharField(
-        _("Photo format"), max_length=10, null=True, blank=True
-    )
+    photo = models.ImageField(upload_to='student_photos/', null=True, blank=True)
 
     class Meta:
         verbose_name = _("Student")

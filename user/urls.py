@@ -17,6 +17,7 @@ from user.views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     UserLoginView,
+    ResendActivationEmailView
 )
 
 app_name = "user"
@@ -47,7 +48,6 @@ urlpatterns = [
     path(
         "profile/student/me/", StudentProfileMeView.as_view(), name="student-profile-me"
     ),
-
     path("auth/login/", UserLoginView.as_view(), name="token_obtain_pair"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("auth/password/change/", ChangePasswordView.as_view(), name="password-change"),
@@ -61,4 +61,9 @@ urlpatterns = [
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
     ),
+    path(
+        "auth/resend-activation/",
+        ResendActivationEmailView.as_view(),
+        name="resend-activation"
+    )
 ]

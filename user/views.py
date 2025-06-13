@@ -1,5 +1,4 @@
 import logging
-
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -13,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
-
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from user.models import (
     BaseUser,
@@ -40,6 +39,7 @@ from user.serializers import (
     TeacherListSerializer,
     TeacherPublicProfileSerializer,
     MyTokenObtainPairSerializer,
+    ResendActivationEmailSerializer,
 )
 
 User = get_user_model()
@@ -91,7 +91,11 @@ class TeacherListView(generics.ListAPIView):
         "city__name",
         "categories__name",
     ]
-    ordering_fields = ["lesson_price", "teaching_experience", "created_at, is_verified",]
+    ordering_fields = [
+        "lesson_price",
+        "teaching_experience",
+        "created_at, is_verified",
+    ]
     pagination_class = None
 
 
@@ -155,7 +159,6 @@ class ActivateAccountView(APIView):
                 f"Account activated successfully for {user.email} (ID: {user.id})."
             )
 
-            redirect_path = "/"
             if user.role == BaseUser.ROLE_STUDENT:
                 try:
                     student_profile, created = Student.objects.get_or_create(user=user)
@@ -234,6 +237,7 @@ class CompleteTeacherProfileView(generics.CreateAPIView):
     serializer_class = TeacherRegistrationSerializer
     permission_classes = [IsAuthenticated]
     queryset = Teacher.objects.none()
+    parser_classes = (MultiPartParser, FormParser)
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -254,18 +258,19 @@ class CompleteTeacherProfileView(generics.CreateAPIView):
         headers = self.get_success_headers(serializer.data)
         response_data = serializer.data
         try:
-            redirect_url = request.build_absolute_uri(
-                reverse("user:teacher-profile-me")
-            )
+            redirect_url = f"{settings.FRONTEND_URL.rstrip('/')}{reverse('user:teacher-profile-me')}"
             response_data["redirect_to"] = redirect_url
         except Exception as e:
-            logger.error(f"Could not reverse URL for teacher-profile-me: {e}")
+            logger.error(
+                f"Could not reverse URL for teacher-profile-me or construct redirect: {e}"
+            )
         return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class TeacherProfileMeView(generics.RetrieveUpdateAPIView):
     serializer_class = TeacherCabinetSerializer
     permission_classes = [IsAuthenticated, IsTeacher, IsProfileOwner]
+    parser_classes = (MultiPartParser, FormParser)
 
     def get_object(self):
         return get_object_or_404(Teacher, user=self.request.user)
@@ -274,12 +279,14 @@ class TeacherProfileMeView(generics.RetrieveUpdateAPIView):
 class StudentProfileMeView(generics.RetrieveUpdateAPIView):
     serializer_class = StudentProfileSerializer
     permission_classes = [IsAuthenticated, IsStudent, IsProfileOwner]
+    parser_classes = (MultiPartParser, FormParser)
 
     def get_object(self):
         student_profile, created = Student.objects.get_or_create(user=self.request.user)
         if created:
             logger.warning(
-                f"Student profile was missing and got created on demand for user {self.request.user.email}"
+                f"Student profile was missing for user {self.request.user.email} (ID: {self.request.user.id}) and was "
+                f"created on demand in StudentProfileMeView."
             )
         return student_profile
 
@@ -307,11 +314,16 @@ class PasswordResetRequestView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(
-                {"detail": _("Password reset email sent")}, status=status.HTTP_200_OK
-            )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "detail": _(
+                    "If an account with this email exists, a password reset link has been sent."
+                )
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class PasswordResetConfirmView(generics.GenericAPIView):
@@ -320,15 +332,67 @@ class PasswordResetConfirmView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(
-                {"detail": _("Password has been reset successfully")},
-                status=status.HTTP_200_OK,
-            )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "detail": _(
+                    "Password has been reset successfully. You can now log in with your new password."
+                )
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class UserLoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
     serializer_class = MyTokenObtainPairSerializer
-    
+
+
+class ResendActivationEmailView(APIView):
+    permission_classes = [AllowAny]
+
+    @staticmethod
+    def post(request, *args, **kwargs):
+        serializer = ResendActivationEmailSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.validated_data["user"]
+
+            try:
+                activation_token = UserRegistrationSerializer.generate_activation_token(
+                    user
+                )
+                activation_url = (
+                    f"{settings.FRONTEND_URL.rstrip('/')}/activate/{activation_token}"
+                )
+
+                UserRegistrationSerializer.send_activation_email(
+                    user.email, activation_url
+                )
+
+                logger.info(
+                    f"Successfully resent activation email to {user.email} (ID: {user.id}) via dedicated endpoint."
+                )
+                return Response(
+                    {
+                        "detail": _(
+                            "Activation email has been resent. Please check your inbox."
+                        )
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to resend activation email for {user.email} (ID: {user.id}) via dedicated endpoint. "
+                    f"Error: {e}"
+                )
+                return Response(
+                    {
+                        "detail": _(
+                            "An error occurred while trying to send the activation email. Please try again later."
+                        )
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -1,9 +1,10 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+
+from django.core.files.storage import storages
 from dotenv import load_dotenv
 
-# from rest_framework.schemas.openapi import AutoSchema # Не використовується напряму
 from celery.schedules import crontab
 
 load_dotenv()
@@ -20,10 +21,10 @@ SECRET_KEY = os.getenv(
 
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "34.77.110.157,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "34.77.83.97:8000, 127.0.0.1").split(",")
 
 INTERNAL_IPS = [
-    "34.77.110.157",
+    "34.77.83.97:8000",
 ]
 
 # Application definition
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "corsheaders",
     "django_celery_beat",
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -55,10 +57,9 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-CORS_ALLOWED_ORIGINS = os.getenv(
-    "CORS_ALLOWED_ORIGINS",
-    "http://localhost:3000"
-).split(",")
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(
+    ","
+)
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -198,12 +199,8 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 CELERY_BEAT_SCHEDULE = {
-    "send-lesson-reminders": {
-        "task": "teaching.tasks.send_lesson_reminders",
-        "schedule": crontab(minute="*/15"),
-    },
-    "update-expired-lessons": {
-        "task": "teaching.tasks.update_expired_lesson_statuses",
+    "delete-old-unactivated-users": {
+        "task": "user.tasks.delete_inactive_unactivated_users",
         "schedule": crontab(minute=0, hour="*/1"),
     },
 }
@@ -214,15 +211,23 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
 EMAIL_USE_TLS = bool(os.getenv("EMAIL_USE_TLS", True))
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL",)
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+)
 
-# URL фронтенду для листів активації/скидання пароля
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://34.22.148.120:3000/activate/")
+# URL фронту для листів активації/скидання пароля
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://34.140.55.162:3000")
 
 ACTIVATION_TOKEN_LIFETIME_HOURS = int(os.getenv("ACTIVATION_TOKEN_LIFETIME_HOURS", 24))
 PASSWORD_RESET_TOKEN_LIFETIME_HOURS = int(
     os.getenv("PASSWORD_RESET_TOKEN_LIFETIME_HOURS", 1)
 )
+
+FTP_STORAGE_LOCATION = "ftp://name:password@adress_ftp_server/url/url/url/media"
+DEFAULT_FILE_STORAGE = "storages.backends.ftp.FTPStorage"
+MEDIA_URL = "http://change-site-adress.com/media/"
+MEDIA_ROOT = ""
+
 
 MAX_UPLOAD_SIZE_MB = int(os.getenv("MAX_UPLOAD_SIZE_MB", 5))
 

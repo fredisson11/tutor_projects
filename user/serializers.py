@@ -1,4 +1,3 @@
-import base64
 import logging
 import re
 from datetime import datetime, timedelta
@@ -66,63 +65,6 @@ class CategoriesOfStudentsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CategoriesOfStudents
         fields = ["id", "name", "name_display"]
-
-
-class Base64ImageField(serializers.Field):
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith("data:image"):
-            try:
-                format_part, imgstr = data.split(";base64,")
-                ext = format_part.split("/")[-1].lower()
-                if ext not in ["jpg", "jpeg", "png", "gif"]:
-                    raise serializers.ValidationError(_("Unsupported image format."))
-                decoded_file = base64.b64decode(imgstr)
-                max_size_mb = getattr(settings, "MAX_UPLOAD_SIZE_MB", 5)
-                if len(decoded_file) > max_size_mb * 1024 * 1024:
-                    raise serializers.ValidationError(
-                        _("Image size cannot exceed {max_size}MB.").format(
-                            max_size=max_size_mb
-                        )
-                    )
-                return {"photo": decoded_file, "photo_format": ext.upper()}
-            except Exception as e:
-                raise serializers.ValidationError(
-                    _("Error processing image: {error}").format(error=str(e))
-                )
-        elif data is None:
-            return None
-        if data:
-            raise serializers.ValidationError(
-                _("Invalid image format. Expected base64 string or null.")
-            )
-        return None
-
-    def to_representation(self, obj):
-        target_obj = None
-        if isinstance(obj, BaseUser):
-            if hasattr(obj, "teacher_profile") and obj.teacher_profile:
-                target_obj = obj.teacher_profile
-            elif hasattr(obj, "student_profile") and obj.student_profile:
-                target_obj = obj.student_profile
-        elif isinstance(obj, (Teacher, Student)):
-            target_obj = obj
-
-        if (
-            target_obj
-            and hasattr(target_obj, "photo")
-            and target_obj.photo
-            and hasattr(target_obj, "photo_format")
-            and target_obj.photo_format
-        ):
-            photo_data = target_obj.photo
-            if isinstance(photo_data, memoryview):
-                photo_data = photo_data.tobytes()
-            if isinstance(photo_data, bytes):
-                encoded = base64.b64encode(photo_data).decode()
-                return f"data:image/{target_obj.photo_format.lower()};base64,{encoded}"
-
-        placeholder_url = "https://placehold.co/150x150/E0E0E0/BDBDBD?text=No+Photo"
-        return placeholder_url
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -219,19 +161,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class TeacherRegistrationSerializer(serializers.ModelSerializer):
-    city = serializers.PrimaryKeyRelatedField(
-        queryset=City.objects.all(), required=True
-    )
-    languages = serializers.PrimaryKeyRelatedField(
-        queryset=Language.objects.all(), many=True, required=True
-    )
-    categories = serializers.PrimaryKeyRelatedField(
-        queryset=CategoriesOfStudents.objects.all(), many=True, required=True
-    )
-    subjects = serializers.PrimaryKeyRelatedField(
-        queryset=Subject.objects.all(), many=True, required=True
-    )
-    photo = Base64ImageField(required=False, allow_null=True)
+    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
 
     class Meta:
         model = Teacher
@@ -280,7 +210,6 @@ class TeacherRegistrationSerializer(serializers.ModelSerializer):
         languages_data = validated_data.pop("languages", [])
         categories_data = validated_data.pop("categories", [])
         subjects_data = validated_data.pop("subjects", [])
-        photo_internal_data = validated_data.pop("photo", None)
 
         teacher = Teacher.objects.create(**validated_data)
 
@@ -291,16 +220,11 @@ class TeacherRegistrationSerializer(serializers.ModelSerializer):
         if subjects_data:
             teacher.subjects.set(subjects_data)
 
-        if photo_internal_data:
-            teacher.photo = photo_internal_data["photo"]
-            teacher.photo_format = photo_internal_data["photo_format"]
-            teacher.save(update_fields=["photo", "photo_format"])
-
         return teacher
 
 
 class StudentProfileSerializer(serializers.ModelSerializer):
-    photo = Base64ImageField(required=False, allow_null=True)
+    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
     email = serializers.EmailField(source="user.email", read_only=True)
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
@@ -309,23 +233,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         model = Student
         fields = ["id", "first_name", "last_name", "phone", "photo", "email"]
         read_only_fields = ("id", "email")
-
-    def update(self, instance, validated_data):
-        photo_internal_data = validated_data.pop("photo", Ellipsis)
-
-        instance = super().update(instance, validated_data)
-
-        if photo_internal_data is None:
-            if instance.photo is not None:
-                instance.photo = None
-                instance.photo_format = None
-                instance.save(update_fields=["photo", "photo_format"])
-        elif photo_internal_data is not Ellipsis:
-            instance.photo = photo_internal_data["photo"]
-            instance.photo_format = photo_internal_data["photo_format"]
-            instance.save(update_fields=["photo", "photo_format"])
-
-        return instance
 
 
 class TeacherCabinetSerializer(serializers.ModelSerializer):
@@ -344,7 +251,7 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
     )
     subjects_read = SubjectSerializer(source="subjects", many=True, read_only=True)
 
-    photo = Base64ImageField(required=False, allow_null=True)
+    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
 
     city = serializers.PrimaryKeyRelatedField(
         queryset=City.objects.all(), required=True, allow_null=True
@@ -444,23 +351,8 @@ class TeacherCabinetSerializer(serializers.ModelSerializer):
         languages_data = validated_data.pop("languages", None)
         categories_data = validated_data.pop("categories", None)
         subjects_data = validated_data.pop("subjects", None)
-        photo_internal_data = validated_data.pop("photo", Ellipsis)
 
         instance = super().update(instance, validated_data)
-
-        needs_save_for_photo = False
-        if photo_internal_data is None:
-            if instance.photo is not None:
-                instance.photo = None
-                instance.photo_format = None
-                needs_save_for_photo = True
-        elif photo_internal_data is not Ellipsis:
-            instance.photo = photo_internal_data["photo"]
-            instance.photo_format = photo_internal_data["photo_format"]
-            needs_save_for_photo = True
-
-        if needs_save_for_photo:
-            instance.save(update_fields=["photo", "photo_format"])
 
         if languages_data is not None:
             instance.languages.set(languages_data)
@@ -477,7 +369,7 @@ class TeacherPublicProfileSerializer(serializers.ModelSerializer):
     languages = LanguageSerializer(many=True, read_only=True)
     categories = CategoriesOfStudentsSerializer(many=True, read_only=True)
     subjects = SubjectSerializer(many=True, read_only=True)
-    photo = Base64ImageField(read_only=True)
+    photo = serializers.ImageField(read_only=True, use_url=True)
     schedule = ScheduleSerializer(source="schedules", many=True, read_only=True)
     rating_summary = serializers.SerializerMethodField(read_only=True)
     is_verified = serializers.BooleanField(read_only=True)
@@ -544,7 +436,7 @@ class TeacherListSerializer(serializers.ModelSerializer):
     city = serializers.StringRelatedField(read_only=True)
     subjects = SubjectSerializer(many=True, read_only=True)
     rating_summary = serializers.SerializerMethodField(read_only=True)
-    photo = Base64ImageField(read_only=True)
+    photo = serializers.ImageField(required=False, allow_null=True, use_url=True)
     is_verified = serializers.BooleanField(read_only=True)
     age = serializers.IntegerField(read_only=True)
     categories = CategoriesOfStudentsSerializer(many=True, read_only=True)
@@ -654,11 +546,9 @@ class PasswordResetSerializer(serializers.Serializer):
             ),
         }
         token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
-        reset_url = (
-            f"{settings.FRONTEND_URL.rstrip('/')}/password-reset/confirm/{token}"
-        )
+        reset_url = f"{settings.FRONTEND_URL.rstrip('/')}/password-reset/{token}"
 
-        subject = _("Password Reset Request for Tutor Project")
+        subject = _("Password Reset Request for Astra +")
         message = _(
             f"You requested a password reset for your account.\n"
             f"\nPlease click the link below to set a new password:\n{reset_url}\n\n"
@@ -772,10 +662,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             if hasattr(user, "student_profile") and user.student_profile:
                 first_name = user.student_profile.first_name
                 last_name = user.student_profile.last_name
-        
+
         if first_name:
             token["first_name"] = first_name
         if last_name:
             token["last_name"] = last_name
-        
+
         return token

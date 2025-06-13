@@ -125,7 +125,7 @@ class TeacherAdmin(admin.ModelAdmin):
         "languages",
     )
     search_fields = ("first_name", "last_name", "user__email", "phone")
-    readonly_fields = ("created_at", "user", "photo", "photo_format")
+    readonly_fields = ("created_at", "user", "photo")
     list_select_related = ("user", "city")
     filter_horizontal = ("languages", "categories", "subjects")
     raw_id_fields = (
@@ -173,10 +173,10 @@ class TeacherAdmin(admin.ModelAdmin):
 class StudentAdmin(admin.ModelAdmin):
     list_display = ("user_link", "first_name", "last_name", "phone")
     search_fields = ("first_name", "last_name", "user__email", "phone")
-    readonly_fields = ("user", "photo", "photo_format")
+    readonly_fields = ("user", "photo")
     list_select_related = ("user",)
     raw_id_fields = ("user",)
-    fields = ("user", "first_name", "last_name", "phone", "photo", "photo_format")
+    fields = ("user", "first_name", "last_name", "phone", "photo")
 
     @admin.display(description=_("User"), ordering="user__email")
     def user_link(self, obj):
